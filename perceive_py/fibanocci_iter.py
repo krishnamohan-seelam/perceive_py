@@ -26,7 +26,6 @@ class FibanocciIterator(Iterator):
         self._start = 0
         self._number = 0
         self._next = 1
-        self._stop = stop
 
     def __next__(self):
         """
