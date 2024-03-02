@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "perceive-py"
+version = "0.1.0"
+description = ""
+authors = ["krishnamohan-seelam <krishnamohan.seelam@outlook.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.2.0"
+flake8 = "^7.0.0"
+isort = "^5.13.2"
+mypy = "^1.8.0"
+pylint = "^3.0.4"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.0.2"
+faker = "^23.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
