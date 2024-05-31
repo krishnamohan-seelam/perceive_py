@@ -1,5 +1,6 @@
 """
-Simple example to show implementation of an Iterator    
+Simple example to show an implementation of an Iterator   
+Yielding elements from container 
 """
 
 from collections.abc import Iterator

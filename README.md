@@ -18,3 +18,7 @@ This package is created to learn python concepts
         - poetry run pytest tests
     - To run particular unittest
         - poetry run pytest tests/unit/test_fibanocci_iter.py  
+
+### Iterators and Iterables
+- Iterator is an object that allows to iterate over collection of data.In Pythons iterators are implemented using iterator design pattern which allows to traverse a container and access its elements
+ 
