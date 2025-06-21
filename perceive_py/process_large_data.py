@@ -8,10 +8,23 @@ import argparse
 from pathlib import Path
 import functools
 import time
+import logging
+from logging.handlers import RotatingFileHandler
 
 
 FILE_PATH = "large_data.csv"
 
+
+# Configure logger
+LOG_FILE = "process_large_data.log"
+logger = logging.getLogger("process_large_data")
+logger.setLevel(logging.DEBUG)
+
+# Create a rotating file handler
+handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=5)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 def get_args():
     """
@@ -30,10 +43,10 @@ def get_args():
 
 def timer(func):
     """
-    A decorator that measures and prints the execution time of the decorated function.
+    A decorator that measures and logs the execution time of the decorated function.
 
     This decorator logs the start time, end time, and the elapsed time of the function
-    execution. It also prints the function name and timestamps in a human-readable format.
+    execution. It also logs the function name and timestamps in a human-readable format.
 
     Args:
         func (Callable): The function to be wrapped and timed.
@@ -50,12 +63,12 @@ def timer(func):
     @functools.wraps(func)
     def wrapper_timer(*args, **kwargs):
         start_time = time.perf_counter()
-        print(f"Starting '{func.__name__}' at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+        logger.info(f"Starting '{func.__name__}' at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
         value = func(*args, **kwargs)
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
-        print(f"Finished '{func.__name__}' at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
-        print(f"Elapsed time for '{func.__name__}': {elapsed_time:0.4f} seconds")
+        logger.info(f"Finished '{func.__name__}' at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+        logger.info(f"Elapsed time for '{func.__name__}': {elapsed_time:0.4f} seconds")
         return value
 
     return wrapper_timer
@@ -129,23 +142,23 @@ def write_chunk(chunk_id, chunk_df, output_file,write_header=False):
     Writes a DataFrame chunk to a CSV file.
     This function appends the given DataFrame chunk to the specified CSV file. 
     If the file does not exist, it creates a new file and writes the header. 
-    In case of any failure during the write operation, an error message is printed.
+    In case of any failure during the write operation, an error message is logged.
     Args:
         chunk_id (int): The identifier for the chunk being written.
         chunk_df (pandas.DataFrame): The DataFrame chunk to be written to the file.
         output_file (str): The path to the output CSV file.
     Raises:
-        Exception: Catches and prints any exception that occurs during the write operation.
+        Exception: Catches and logs any exception that occurs during the write operation.
     """
     try:
         mode = "a"  # Always append mode
         header = write_header # Write header only if file is empty
 
         chunk_df.to_csv(output_file, mode=mode, header=header, index=False)
-        print(f"Chunk {chunk_id} written successfully.")
+        logger.info(f"Chunk {chunk_id} written successfully.")
 
     except Exception as e:
-        print(f"Error writing chunk {chunk_id}: {e}")
+        logger.error(f"Error writing chunk {chunk_id}: {e}")
 
 def write_to_file(output_file, chunks, num_workers=5):
     """
@@ -180,19 +193,19 @@ def write_to_file(output_file, chunks, num_workers=5):
             try:
                 future.result()  # Raise exception if the task failed
             except Exception as e:
-                print(f"Failed to write chunk {i}: {e}")
+                logger.error(f"Failed to write chunk {i}: {e}")
                 failed_chunks.append((i, chunk))
 
         # Retry failed chunks
         if failed_chunks:
-            print(f"The following chunks failed to process: {[i for i, _ in failed_chunks]}")
-            print("Retrying failed chunks...")
+            logger.warning(f"The following chunks failed to process: {[i for i, _ in failed_chunks]}")
+            logger.info("Retrying failed chunks...")
             for i, chunk in failed_chunks:
                 try:
                     write_chunk(i, chunk)
-                    print(f"Chunk {i} successfully written on retry.")
+                    logger.info(f"Chunk {i} successfully written on retry.")
                 except Exception as e:
-                    print(f"Retry failed for chunk {i}: {e}")
+                    logger.error(f"Retry failed for chunk {i}: {e}")
 
 @timer
 def main(filename, output_location):
@@ -207,9 +220,12 @@ def main(filename, output_location):
     Returns:
         None
     """
-    num_rows=3000
+    num_rows=30000
     num_cols=10
     df  = create_large_dataframe(num_rows, num_cols)
+    logger.info(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns.")
+   
+    
     # Ensure output directory exists
     output_location = Path(output_location)
     output_location.mkdir(parents=True, exist_ok=True)
