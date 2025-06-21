@@ -62,24 +62,45 @@ def timer(func):
 
 #  Create sample large DataFrame
 @timer
-def create_large_dataframe(num_rows=30000000, num_cols=10):
+def create_large_dataframe(num_rows=3000, num_cols=10):
     """
-    Create a large DataFrame for testing purposes.
+    Create a large DataFrame for testing purposes with a row identifier column,
+    alternating numeric and string columns.
 
-    This function generates a DataFrame with 30 million rows and 10 columns,
-    filled with random floating-point numbers between 0 and 1. The random
-    number generation is seeded for reproducibility.
+    This function generates a DataFrame with the specified number of rows and columns.
+    The first column is a row identifier, and the remaining columns alternate between
+    numeric and string data. The random number generation is seeded for reproducibility.
+
+    Args:
+        num_rows (int): Number of rows in the DataFrame.
+        num_cols (int): Total number of columns excluding the row identifier.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the generated data with column
-        names in the format 'col_0', 'col_1', ..., 'col_9'.
+        pd.DataFrame: A DataFrame containing the generated data with column names
+        in the format 'row_id', 'num_col_0', 'str_col_1', ..., alternating between numeric and string columns.
     """
-    """Create a large DataFrame for testing purposes."""
     np.random.seed(0)  # For reproducibility
 
-    data = np.random.rand(num_rows, num_cols)
-    columns = [f"col_{i}" for i in range(num_cols)]
+    # Generate row identifier
+    row_ids = np.arange(1, num_rows + 1).reshape(-1, 1)
+
+    # Determine the number of numeric and string columns
+    num_numeric_cols = num_cols // 2
+    num_string_cols = num_cols - num_numeric_cols
+
+    # Generate numeric data
+    numeric_data = np.random.rand(num_rows, num_numeric_cols)
+    numeric_columns = [f"num_col_{i}" for i in range(num_numeric_cols)]
+
+    # Generate string data
+    string_data = np.random.choice(['A', 'B', 'C', 'D'], size=(num_rows, num_string_cols))
+    string_columns = [f"str_col_{i}" for i in range(num_string_cols)]
+
+    # Combine row identifier, numeric, and string data into a single DataFrame
+    data = np.hstack((row_ids, numeric_data, string_data))
+    columns = ["row_id"] + numeric_columns + string_columns
     df = pd.DataFrame(data, columns=columns)
+
     return df
 
 
@@ -103,7 +124,7 @@ def chunk_generator(df, chunk_size, num_chunks):
     for i in range(num_chunks):
         yield df.iloc[i * chunk_size:(i + 1) * chunk_size]
 
-def write_chunk(chunk_id, chunk_df,output_file):
+def write_chunk(chunk_id, chunk_df, output_file,write_header=False):
     """
     Writes a DataFrame chunk to a CSV file.
     This function appends the given DataFrame chunk to the specified CSV file. 
@@ -116,19 +137,17 @@ def write_chunk(chunk_id, chunk_df,output_file):
     Raises:
         Exception: Catches and prints any exception that occurs during the write operation.
     """
-    """Writes a chunk to a CSV file and handles failures."""
     try:
-        mode = "a" if os.path.exists(output_file) else "w"
-        header = not os.path.exists(output_file)  # Write header only for first chunk
+        mode = "a"  # Always append mode
+        header = write_header # Write header only if file is empty
 
         chunk_df.to_csv(output_file, mode=mode, header=header, index=False)
-        print(f"Chunk {chunk_id} written successfully.")    
-      
+        print(f"Chunk {chunk_id} written successfully.")
 
     except Exception as e:
         print(f"Error writing chunk {chunk_id}: {e}")
 
-def write_to_file(output_file, chunks, num_workers=6):
+def write_to_file(output_file, chunks, num_workers=5):
     """
     Writes data chunks to a file using multithreading for parallel processing.
 
@@ -149,8 +168,11 @@ def write_to_file(output_file, chunks, num_workers=6):
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {}
         for i, chunk in enumerate(chunks):
-            future = executor.submit(write_chunk, i, chunk,output_file)
-            futures[future] = (i, chunk)
+            if i == 0:
+                write_chunk(i, chunk, output_file,write_header=True)  # Write the first chunk immediately
+            else:
+                future = executor.submit(write_chunk, i, chunk,output_file,write_header=False)
+                futures[future] = (i, chunk)
 
         # Wait for all futures to complete
         for future in concurrent.futures.as_completed(futures):
@@ -185,22 +207,26 @@ def main(filename, output_location):
     Returns:
         None
     """
-    num_rows=30000000
+    num_rows=3000
     num_cols=10
     df  = create_large_dataframe(num_rows, num_cols)
     # Ensure output directory exists
     output_location = Path(output_location)
     output_location.mkdir(parents=True, exist_ok=True)
     output_file = str(output_location / filename)
+    
+    # Delete the existing file if it exists
+    if os.path.exists(output_file):
+        os.remove(output_file)
     # Split DataFrame into chunks
-    NUM_CHUNKS = 10
+    NUM_CHUNKS = 5
     CHUNK_SIZE = len(df) // NUM_CHUNKS
-
+    NUM_WORKERS = 5
 
     chunks = chunk_generator(df, CHUNK_SIZE, NUM_CHUNKS)
 
 
-    write_to_file(output_file, chunks)
+    write_to_file(output_file, chunks,NUM_WORKERS)
 
 
 
