@@ -67,12 +67,15 @@ def handle_mapped_columns(field_name, field_type, num_rows, match_fraction, reve
         match_count = int(num_rows * match_fraction)
         matched_data = shared_data[source_column][:match_count]
         precomputed_choices = random.choices(shared_data[source_column], k=num_rows - match_count) if field_type in ['integer', 'boolean'] else None
-        remaining_data = [
-            precomputed_choices[i] if precomputed_choices and field_type in ['integer', 'boolean']
-            else random.uniform(0.0, 100.0) if field_type == 'float'
-            else ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-            for i in range(num_rows - match_count)
-        ]
+        remaining_data = []
+        for i in range(num_rows - match_count):
+            if field_type in ['integer', 'boolean']:
+                value = precomputed_choices[i]
+            elif field_type == 'float':
+                value = random.uniform(0.0, 100.0)
+            else:
+                value = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+            remaining_data.append(value)
         return matched_data + remaining_data
     return None
 
@@ -93,6 +96,7 @@ def generate_combined_data(schemas, num_rows, mapped_source_and_target_columns=N
     reverse_mapped_columns = {tgt: src for src, tgt in mapped_source_and_target_columns.items()} if mapped_source_and_target_columns else {}
 
     for schema_name, schema_info in schemas.items():
+        print(f"Generating data for schema: {schema_name}")
         schema = schema_info["schema"]
         seed = schema_info["seed"]
         random.seed(seed)
@@ -126,6 +130,7 @@ def generate_combined_data(schemas, num_rows, mapped_source_and_target_columns=N
             # Store shared data for mapped columns
             if mapped_source_and_target_columns and field_name in mapped_source_and_target_columns.keys():
                 shared_data[field_name] = generated_data
+        print(f"Generated {num_rows} rows for schema: {schema_name}")
 
         result[schema_name] = {
             "schema": schema,
@@ -172,7 +177,7 @@ if __name__ == "__main__":
 
     # Generate synthetic data using the sample schemas
     schemas = {
-        "source": {"schema": source_schema, "seed": 42},
+        "source": {"schema": source_schema, "seed": 7},
         "target": {"schema": target_schema, "seed": 13}
     }
     mapped_source_and_target_columns={"source_id": "target_id"}
