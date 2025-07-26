@@ -29,6 +29,9 @@ async def supervisor():
 
 
 def main():
+    """
+    Entry point for the script. Runs the asynchronous supervisor task and prints the result.
+    """
     result = asyncio.run(supervisor())
     print("Answer is: ", result)
 
