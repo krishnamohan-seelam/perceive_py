@@ -221,6 +221,8 @@ env.bak/
 venv.bak/
 downloaded
 
+# vscode project settings
+.vscode
 # Spyder project settings
 .spyderproject
 .spyproject
